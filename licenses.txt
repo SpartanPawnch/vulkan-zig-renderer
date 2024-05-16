@@ -1,0 +1,9 @@
+MIT:
+= https://spdx.org/licenses/MIT
+- git https://github.com/Snektron/vulkan-zig
+
+Unspecified:
+- This
+- git https://github.com/hexops/mach-glfw
+- git https://github.com/kooparse/zalgebra
+- git https://github.com/nothings/stb
