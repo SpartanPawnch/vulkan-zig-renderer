@@ -172,8 +172,8 @@ pub const Sampler = struct {
         samplerInfo.minLod = 0.0;
         samplerInfo.maxLod = c.VK_LOD_CLAMP_NONE;
         samplerInfo.mipLodBias = 0.0;
-        samplerInfo.anisotropyEnable = c.VK_FALSE;
-        samplerInfo.maxAnisotropy = 0;
+        samplerInfo.anisotropyEnable = c.VK_TRUE;
+        samplerInfo.maxAnisotropy = 16.0;
         samplerInfo.unnormalizedCoordinates = c.VK_FALSE;
 
         var sampler: c.VkSampler = undefined;

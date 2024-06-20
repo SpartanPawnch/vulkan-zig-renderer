@@ -224,10 +224,14 @@ pub const Model = struct {
         // load images
         var images = std.ArrayList(vkrc.Image2D).init(allocator);
         var imageViews = std.ArrayList(vkrc.ImageView).init(allocator);
+        var whiteIdx: ?usize = null;
         for (gltfCtx.data.images.items) |*image| {
             // std.debug.print("{?s}\n", .{image.uri});
             const uri = image.uri.?;
             const root = "assets/sponza/";
+            if (std.mem.startsWith(u8, uri, "white")) {
+                whiteIdx = images.items.len;
+            }
             var path = std.ArrayList(u8).init(allocator);
             defer path.deinit();
             try path.appendSlice(root);
@@ -270,7 +274,7 @@ pub const Model = struct {
         //write material descriptors
         var writes = std.ArrayList(c.VkWriteDescriptorSet).init(allocator);
         defer writes.deinit();
-        try writes.resize(materialBuffers.items.len * 2);
+        try writes.resize(materialBuffers.items.len * 3);
 
         var bufInfos = std.ArrayList(c.VkDescriptorBufferInfo).init(allocator);
         defer bufInfos.deinit();
@@ -278,34 +282,57 @@ pub const Model = struct {
 
         var texInfos = std.ArrayList(c.VkDescriptorImageInfo).init(allocator);
         defer texInfos.deinit();
-        try texInfos.resize(materialDescriptors.items.len);
+        try texInfos.resize(materialDescriptors.items.len * 2);
 
         for (0..materialBuffers.items.len, gltfCtx.data.materials.items) |i, mat| {
             bufInfos.items[i].offset = 0;
             bufInfos.items[i].buffer = materialBuffers.items[i].handle;
             bufInfos.items[i].range = c.VK_WHOLE_SIZE;
 
-            writes.items[2 * i] = std.mem.zeroes(c.VkWriteDescriptorSet);
-            writes.items[2 * i].sType = c.VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-            writes.items[2 * i].dstSet = materialDescriptors.items[i];
-            writes.items[2 * i].dstBinding = 0;
-            writes.items[2 * i].descriptorType = c.VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-            writes.items[2 * i].descriptorCount = 1;
-            writes.items[2 * i].pBufferInfo = &bufInfos.items[i];
+            writes.items[3 * i] = std.mem.zeroes(c.VkWriteDescriptorSet);
+            writes.items[3 * i].sType = c.VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+            writes.items[3 * i].dstSet = materialDescriptors.items[i];
+            writes.items[3 * i].dstBinding = 0;
+            writes.items[3 * i].descriptorType = c.VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+            writes.items[3 * i].descriptorCount = 1;
+            writes.items[3 * i].pBufferInfo = &bufInfos.items[i];
 
-            const texIdx = mat.metallic_roughness.base_color_texture.?;
-            const imgIdx = gltfCtx.data.textures.items[texIdx.index].source.?;
-            texInfos.items[i].imageLayout = c.VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-            texInfos.items[i].imageView = imageViews.items[imgIdx].handle;
-            texInfos.items[i].sampler = sampler.handle;
+            {
+                const texIdx = mat.metallic_roughness.base_color_texture.?;
+                const imgIdx = gltfCtx.data.textures.items[texIdx.index].source.?;
+                texInfos.items[2 * i].imageLayout = c.VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+                texInfos.items[2 * i].imageView = imageViews.items[imgIdx].handle;
+                texInfos.items[2 * i].sampler = sampler.handle;
 
-            writes.items[2 * i + 1] = std.mem.zeroes(c.VkWriteDescriptorSet);
-            writes.items[2 * i + 1].sType = c.VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-            writes.items[2 * i + 1].dstSet = materialDescriptors.items[i];
-            writes.items[2 * i + 1].dstBinding = 1;
-            writes.items[2 * i + 1].descriptorType = c.VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-            writes.items[2 * i + 1].descriptorCount = 1;
-            writes.items[2 * i + 1].pImageInfo = &texInfos.items[i];
+                writes.items[3 * i + 1] = std.mem.zeroes(c.VkWriteDescriptorSet);
+                writes.items[3 * i + 1].sType = c.VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+                writes.items[3 * i + 1].dstSet = materialDescriptors.items[i];
+                writes.items[3 * i + 1].dstBinding = 1;
+                writes.items[3 * i + 1].descriptorType = c.VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+                writes.items[3 * i + 1].descriptorCount = 1;
+                writes.items[3 * i + 1].pImageInfo = &texInfos.items[2 * i];
+            }
+
+            {
+                var imgIdx: usize = undefined;
+                if (mat.metallic_roughness.metallic_roughness_texture != null) {
+                    const texIdx = mat.metallic_roughness.metallic_roughness_texture.?.index;
+                    imgIdx = gltfCtx.data.textures.items[texIdx].source.?;
+                } else {
+                    imgIdx = whiteIdx.?;
+                }
+                texInfos.items[2 * i + 1].imageLayout = c.VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+                texInfos.items[2 * i + 1].imageView = imageViews.items[imgIdx].handle;
+                texInfos.items[2 * i + 1].sampler = sampler.handle;
+
+                writes.items[3 * i + 2] = std.mem.zeroes(c.VkWriteDescriptorSet);
+                writes.items[3 * i + 2].sType = c.VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+                writes.items[3 * i + 2].dstSet = materialDescriptors.items[i];
+                writes.items[3 * i + 2].dstBinding = 2;
+                writes.items[3 * i + 2].descriptorType = c.VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+                writes.items[3 * i + 2].descriptorCount = 1;
+                writes.items[3 * i + 2].pImageInfo = &texInfos.items[2 * i + 1];
+            }
         }
 
         c.vkUpdateDescriptorSets(device, @intCast(writes.items.len), writes.items.ptr, 0, null);

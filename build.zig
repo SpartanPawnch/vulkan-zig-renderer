@@ -6,7 +6,7 @@ pub fn build(b: *std.Build) !void {
     // const mode = b.standardReleaseOptions();
 
     const exe = b.addExecutable(.{
-        .name = "kur",
+        .name = "renderer",
         .root_source_file = .{ .path = "src/main.zig" },
         .target = b.host,
     });

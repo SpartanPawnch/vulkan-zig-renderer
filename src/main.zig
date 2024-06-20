@@ -1,6 +1,6 @@
 const std = @import("std");
 const c = @import("c_imports.zig");
-const vk = @import("vulkan_context.zig");
+const vk = @import("vulkan_renderer.zig");
 const za = @import("zalgebra");
 
 const CamState = struct {
@@ -125,14 +125,14 @@ pub fn main() !void {
     const window = c.glfwCreateWindow(
         @intCast(extent.width),
         @intCast(extent.height),
-        "Kur",
+        "Vulkan Renderer",
         null,
         null,
     ) orelse return error.WindowInitFailed;
     defer c.glfwDestroyWindow(window);
 
     //init vulkan
-    var vkCtx = try vk.VulkanContext.init(window);
+    var vkCtx = try vk.VulkanRenderer.init(window);
     defer vkCtx.deinit();
 
     //setup input

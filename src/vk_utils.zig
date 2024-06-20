@@ -44,3 +44,28 @@ pub fn image_barrier(
     ibarrier.subresourceRange = resourceRange;
     c.vkCmdPipelineBarrier(commandBuffer, srcStageMask, dstStageMask, 0, 0, null, 0, null, 1, &ibarrier);
 }
+
+pub fn buffer_barrier(
+    commandBuffer: c.VkCommandBuffer,
+    buffer: c.VkBuffer,
+    srcAccessMask: c.VkAccessFlags,
+    dstAccessMask: c.VkAccessFlags,
+    srcStageMask: c.VkPipelineStageFlags,
+    dstStageMask: c.VkPipelineStageFlags,
+    size: c.VkDeviceSize,
+    offset: c.VkDeviceSize,
+    srcQueueFamily: u32,
+    dstQueueFamily: u32,
+) void {
+    var bbarier = std.mem.zeroes(c.VkBufferMemoryBarrier);
+    bbarier.sType = c.VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER;
+    bbarier.srcAccessMask = srcAccessMask;
+    bbarier.dstAccessMask = dstAccessMask;
+    bbarier.buffer = buffer;
+    bbarier.size = size;
+    bbarier.offset = offset;
+    bbarier.srcQueueFamilyIndex = srcQueueFamily;
+    bbarier.dstQueueFamilyIndex = dstQueueFamily;
+
+    c.vkCmdPipelineBarrier(commandBuffer, srcStageMask, dstStageMask, 0, 0, null, 1, &bbarier, 0, null);
+}

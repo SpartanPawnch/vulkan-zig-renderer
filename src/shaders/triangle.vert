@@ -13,8 +13,9 @@ layout(location=1) out vec3 v2fNormal;
 layout(location=2) out vec2 v2fTex;
 
 void main() {
-    gl_Position = viewProj*vec4(.01*inPos, 1.0);
-    v2fWorldPos=inPos;
+    vec3 world_pos=.01*inPos;
+    gl_Position = viewProj*vec4(world_pos, 1.0);
+    v2fWorldPos=world_pos;
     v2fNormal=inNormal;
     v2fTex=inTex;
 }
