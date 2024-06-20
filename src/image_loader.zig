@@ -18,6 +18,7 @@ pub fn loadImage2D(
     vmaAllocator: cvk.VmaAllocator,
     cmdPool: cvk.VkCommandPool,
     graphicsQueue: cvk.VkQueue,
+    format: cvk.VkFormat,
 ) !vkrc.Image2D {
     var widthI: i32 = undefined;
     var heightI: i32 = undefined;
@@ -36,7 +37,7 @@ pub fn loadImage2D(
         vmaAllocator,
         width,
         height,
-        cvk.VK_FORMAT_R8G8B8A8_SRGB,
+        format,
         cvk.VK_IMAGE_USAGE_SAMPLED_BIT | cvk.VK_IMAGE_USAGE_TRANSFER_DST_BIT | cvk.VK_IMAGE_USAGE_TRANSFER_SRC_BIT,
         cvk.VK_SAMPLE_COUNT_1_BIT,
         true,

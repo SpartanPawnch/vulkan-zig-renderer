@@ -3,6 +3,7 @@
 layout(location=0) in vec3 inPos;
 layout(location=1) in vec3 inNormal;
 layout(location=2) in vec2 inTex;
+layout(location=3) in vec4 inTangent;
 
 layout(push_constant,std430) uniform camInfo{
     mat4 viewProj;
@@ -11,6 +12,7 @@ layout(push_constant,std430) uniform camInfo{
 layout(location=0) out vec3 v2fWorldPos;
 layout(location=1) out vec3 v2fNormal;
 layout(location=2) out vec2 v2fTex;
+layout(location=3) out vec4 v2fTangent;
 
 void main() {
     vec3 world_pos=.01*inPos;
@@ -18,4 +20,5 @@ void main() {
     v2fWorldPos=world_pos;
     v2fNormal=inNormal;
     v2fTex=inTex;
+    v2fTangent=inTangent;
 }

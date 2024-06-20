@@ -25,6 +25,7 @@ pub const Model = struct {
         posBuffer: vkrc.Buffer,
         normalBuffer: vkrc.Buffer,
         uvBuffer: vkrc.Buffer,
+        tangentBuffer: vkrc.Buffer,
         idxBuffer: vkrc.Buffer,
         idxCount: u32 = 0,
         materialIdx: ?usize = null,
@@ -49,6 +50,9 @@ pub const Model = struct {
 
         var texcoords = std.ArrayList(f32).init(allocator);
         defer texcoords.deinit();
+
+        var tangents = std.ArrayList(f32).init(allocator);
+        defer tangents.deinit();
 
         {
             const accessor = gltfCtx.data.accessors.items[primitive.indices.?];
@@ -110,29 +114,45 @@ pub const Model = struct {
                     const accessor = gltfCtx.data.accessors.items[idx];
                     gltfCtx.getDataFromBufferView(f32, &texcoords, accessor, bin);
                 },
+                .tangent => |idx| {
+                    const accessor = gltfCtx.data.accessors.items[idx];
+                    gltfCtx.getDataFromBufferView(f32, &tangents, accessor, bin);
+                },
                 else => {},
             }
         }
+
+        if (tangents.items.len == 0) {
+            try tangents.resize((positions.items.len / 3) * 4);
+        }
+
         const posBuffer = try vkrc.Buffer.init(
             vmaAllocator,
             positions.items.len * @sizeOf(f32),
-            c.VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
+            c.VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | c.VK_BUFFER_USAGE_TRANSFER_DST_BIT,
         );
         const normalBuffer = try vkrc.Buffer.init(
             vmaAllocator,
             normals.items.len * @sizeOf(f32),
-            c.VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
+            c.VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | c.VK_BUFFER_USAGE_TRANSFER_DST_BIT,
         );
         const uvBuffer = try vkrc.Buffer.init(
             vmaAllocator,
             texcoords.items.len * @sizeOf(f32),
-            c.VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
+            c.VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | c.VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+        );
+        const tangentBuffer = try vkrc.Buffer.init(
+            vmaAllocator,
+            tangents.items.len * @sizeOf(f32),
+            c.VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | c.VK_BUFFER_USAGE_TRANSFER_DST_BIT,
         );
         const idxBuffer = try vkrc.Buffer.init(
             vmaAllocator,
             indices.items.len * @sizeOf(u32),
-            c.VK_BUFFER_USAGE_INDEX_BUFFER_BIT,
+            c.VK_BUFFER_USAGE_INDEX_BUFFER_BIT | c.VK_BUFFER_USAGE_TRANSFER_DST_BIT,
         );
+
+        // std.debug.print("{any}\n", .{tangents.items});
 
         //transfer data
         _ = c.vmaCopyMemoryToAllocation(
@@ -158,6 +178,13 @@ pub const Model = struct {
         );
         _ = c.vmaCopyMemoryToAllocation(
             vmaAllocator,
+            tangents.items.ptr,
+            tangentBuffer.allocation,
+            0,
+            tangents.items.len * @sizeOf(f32),
+        );
+        _ = c.vmaCopyMemoryToAllocation(
+            vmaAllocator,
             indices.items.ptr,
             idxBuffer.allocation,
             0,
@@ -168,6 +195,7 @@ pub const Model = struct {
             .posBuffer = posBuffer,
             .normalBuffer = normalBuffer,
             .uvBuffer = uvBuffer,
+            .tangentBuffer = tangentBuffer,
             .idxBuffer = idxBuffer,
             .idxCount = @intCast(indices.items.len),
             .materialIdx = primitive.material,
@@ -221,11 +249,33 @@ pub const Model = struct {
         //create sampler
         const sampler = try vkrc.Sampler.init(device);
 
+        const ImageUsage = enum {
+            ColorTexture,
+            MetallicRoughness,
+            NormalMap,
+        };
+
+        // get image usages
+        var imageUsages = std.ArrayList(ImageUsage).init(allocator);
+        defer imageUsages.deinit();
+        try imageUsages.resize(gltfCtx.data.images.items.len);
+        for (gltfCtx.data.materials.items) |*material| {
+            if (material.metallic_roughness.base_color_texture != null) {
+                imageUsages.items[material.metallic_roughness.base_color_texture.?.index] = ImageUsage.ColorTexture;
+            }
+            if (material.metallic_roughness.metallic_roughness_texture != null) {
+                imageUsages.items[material.metallic_roughness.metallic_roughness_texture.?.index] = ImageUsage.MetallicRoughness;
+            }
+            if (material.normal_texture != null) {
+                imageUsages.items[material.normal_texture.?.index] = ImageUsage.NormalMap;
+            }
+        }
+
         // load images
         var images = std.ArrayList(vkrc.Image2D).init(allocator);
         var imageViews = std.ArrayList(vkrc.ImageView).init(allocator);
         var whiteIdx: ?usize = null;
-        for (gltfCtx.data.images.items) |*image| {
+        for (gltfCtx.data.images.items, 0..gltfCtx.data.images.items.len) |*image, idx| {
             // std.debug.print("{?s}\n", .{image.uri});
             const uri = image.uri.?;
             const root = "assets/sponza/";
@@ -236,9 +286,17 @@ pub const Model = struct {
             defer path.deinit();
             try path.appendSlice(root);
             try path.appendSlice(uri);
-            const resImg = try img_loader.loadImage2D(path.items, device, vmaAllocator, cmdPool, graphicsQueue);
+
+            var format: c.VkFormat = undefined;
+            if (imageUsages.items[idx] == ImageUsage.ColorTexture) {
+                format = c.VK_FORMAT_R8G8B8A8_SRGB;
+            } else {
+                format = c.VK_FORMAT_R8G8B8A8_UNORM;
+            }
+
+            const resImg = try img_loader.loadImage2D(path.items, device, vmaAllocator, cmdPool, graphicsQueue, format);
             try images.append(resImg);
-            try imageViews.append(try vkrc.ImageView.init(device, resImg.handle, c.VK_FORMAT_R8G8B8A8_SRGB));
+            try imageViews.append(try vkrc.ImageView.init(device, resImg.handle, format));
         }
 
         //upload material data
@@ -274,7 +332,7 @@ pub const Model = struct {
         //write material descriptors
         var writes = std.ArrayList(c.VkWriteDescriptorSet).init(allocator);
         defer writes.deinit();
-        try writes.resize(materialBuffers.items.len * 3);
+        try writes.resize(materialBuffers.items.len * 4);
 
         var bufInfos = std.ArrayList(c.VkDescriptorBufferInfo).init(allocator);
         defer bufInfos.deinit();
@@ -282,35 +340,35 @@ pub const Model = struct {
 
         var texInfos = std.ArrayList(c.VkDescriptorImageInfo).init(allocator);
         defer texInfos.deinit();
-        try texInfos.resize(materialDescriptors.items.len * 2);
+        try texInfos.resize(materialDescriptors.items.len * 3);
 
         for (0..materialBuffers.items.len, gltfCtx.data.materials.items) |i, mat| {
             bufInfos.items[i].offset = 0;
             bufInfos.items[i].buffer = materialBuffers.items[i].handle;
             bufInfos.items[i].range = c.VK_WHOLE_SIZE;
 
-            writes.items[3 * i] = std.mem.zeroes(c.VkWriteDescriptorSet);
-            writes.items[3 * i].sType = c.VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-            writes.items[3 * i].dstSet = materialDescriptors.items[i];
-            writes.items[3 * i].dstBinding = 0;
-            writes.items[3 * i].descriptorType = c.VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-            writes.items[3 * i].descriptorCount = 1;
-            writes.items[3 * i].pBufferInfo = &bufInfos.items[i];
+            writes.items[4 * i] = std.mem.zeroes(c.VkWriteDescriptorSet);
+            writes.items[4 * i].sType = c.VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+            writes.items[4 * i].dstSet = materialDescriptors.items[i];
+            writes.items[4 * i].dstBinding = 0;
+            writes.items[4 * i].descriptorType = c.VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+            writes.items[4 * i].descriptorCount = 1;
+            writes.items[4 * i].pBufferInfo = &bufInfos.items[i];
 
             {
                 const texIdx = mat.metallic_roughness.base_color_texture.?;
                 const imgIdx = gltfCtx.data.textures.items[texIdx.index].source.?;
-                texInfos.items[2 * i].imageLayout = c.VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-                texInfos.items[2 * i].imageView = imageViews.items[imgIdx].handle;
-                texInfos.items[2 * i].sampler = sampler.handle;
+                texInfos.items[3 * i].imageLayout = c.VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+                texInfos.items[3 * i].imageView = imageViews.items[imgIdx].handle;
+                texInfos.items[3 * i].sampler = sampler.handle;
 
-                writes.items[3 * i + 1] = std.mem.zeroes(c.VkWriteDescriptorSet);
-                writes.items[3 * i + 1].sType = c.VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-                writes.items[3 * i + 1].dstSet = materialDescriptors.items[i];
-                writes.items[3 * i + 1].dstBinding = 1;
-                writes.items[3 * i + 1].descriptorType = c.VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-                writes.items[3 * i + 1].descriptorCount = 1;
-                writes.items[3 * i + 1].pImageInfo = &texInfos.items[2 * i];
+                writes.items[4 * i + 1] = std.mem.zeroes(c.VkWriteDescriptorSet);
+                writes.items[4 * i + 1].sType = c.VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+                writes.items[4 * i + 1].dstSet = materialDescriptors.items[i];
+                writes.items[4 * i + 1].dstBinding = 1;
+                writes.items[4 * i + 1].descriptorType = c.VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+                writes.items[4 * i + 1].descriptorCount = 1;
+                writes.items[4 * i + 1].pImageInfo = &texInfos.items[3 * i];
             }
 
             {
@@ -321,17 +379,39 @@ pub const Model = struct {
                 } else {
                     imgIdx = whiteIdx.?;
                 }
-                texInfos.items[2 * i + 1].imageLayout = c.VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-                texInfos.items[2 * i + 1].imageView = imageViews.items[imgIdx].handle;
-                texInfos.items[2 * i + 1].sampler = sampler.handle;
+                texInfos.items[3 * i + 1].imageLayout = c.VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+                texInfos.items[3 * i + 1].imageView = imageViews.items[imgIdx].handle;
+                texInfos.items[3 * i + 1].sampler = sampler.handle;
 
-                writes.items[3 * i + 2] = std.mem.zeroes(c.VkWriteDescriptorSet);
-                writes.items[3 * i + 2].sType = c.VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-                writes.items[3 * i + 2].dstSet = materialDescriptors.items[i];
-                writes.items[3 * i + 2].dstBinding = 2;
-                writes.items[3 * i + 2].descriptorType = c.VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-                writes.items[3 * i + 2].descriptorCount = 1;
-                writes.items[3 * i + 2].pImageInfo = &texInfos.items[2 * i + 1];
+                writes.items[4 * i + 2] = std.mem.zeroes(c.VkWriteDescriptorSet);
+                writes.items[4 * i + 2].sType = c.VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+                writes.items[4 * i + 2].dstSet = materialDescriptors.items[i];
+                writes.items[4 * i + 2].dstBinding = 2;
+                writes.items[4 * i + 2].descriptorType = c.VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+                writes.items[4 * i + 2].descriptorCount = 1;
+                writes.items[4 * i + 2].pImageInfo = &texInfos.items[3 * i + 1];
+            }
+
+            {
+                if (mat.normal_texture != null) {
+                    const texIdx = mat.normal_texture.?;
+                    const imgIdx = gltfCtx.data.textures.items[texIdx.index].source.?;
+
+                    texInfos.items[3 * i + 2].imageView = imageViews.items[imgIdx].handle;
+                } else {
+                    texInfos.items[3 * i + 2].imageView = imageViews.items[whiteIdx.?].handle;
+                }
+
+                texInfos.items[3 * i + 2].imageLayout = c.VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+                texInfos.items[3 * i + 2].sampler = sampler.handle;
+
+                writes.items[4 * i + 3] = std.mem.zeroes(c.VkWriteDescriptorSet);
+                writes.items[4 * i + 3].sType = c.VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+                writes.items[4 * i + 3].dstSet = materialDescriptors.items[i];
+                writes.items[4 * i + 3].dstBinding = 3;
+                writes.items[4 * i + 3].descriptorType = c.VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+                writes.items[4 * i + 3].descriptorCount = 1;
+                writes.items[4 * i + 3].pImageInfo = &texInfos.items[3 * i + 2];
             }
         }
 
@@ -369,6 +449,7 @@ pub const Model = struct {
 
         for (self.submeshes.items) |*submesh| {
             submesh.idxBuffer.deinit(vmaAllocator);
+            submesh.tangentBuffer.deinit(vmaAllocator);
             submesh.uvBuffer.deinit(vmaAllocator);
             submesh.normalBuffer.deinit(vmaAllocator);
             submesh.posBuffer.deinit(vmaAllocator);

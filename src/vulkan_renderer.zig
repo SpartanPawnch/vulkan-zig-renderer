@@ -550,20 +550,27 @@ pub const VulkanRenderer = struct {
     }
 
     fn createMaterialDescriptorSetLayout(self: *VulkanRenderer) !void {
-        var layoutBindings = std.mem.zeroes([3]c.VkDescriptorSetLayoutBinding);
+        var layoutBindings = std.mem.zeroes([4]c.VkDescriptorSetLayoutBinding);
         layoutBindings[0].binding = 0;
         layoutBindings[0].descriptorType = c.VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
         layoutBindings[0].descriptorCount = 1;
         layoutBindings[0].stageFlags = c.VK_SHADER_STAGE_FRAGMENT_BIT;
         layoutBindings[0].pImmutableSamplers = null;
+
         layoutBindings[1].binding = 1;
         layoutBindings[1].descriptorType = c.VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
         layoutBindings[1].descriptorCount = 1;
         layoutBindings[1].stageFlags = c.VK_SHADER_STAGE_FRAGMENT_BIT;
+
         layoutBindings[2].binding = 2;
         layoutBindings[2].descriptorType = c.VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
         layoutBindings[2].descriptorCount = 1;
         layoutBindings[2].stageFlags = c.VK_SHADER_STAGE_FRAGMENT_BIT;
+
+        layoutBindings[3].binding = 3;
+        layoutBindings[3].descriptorType = c.VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+        layoutBindings[3].descriptorCount = 1;
+        layoutBindings[3].stageFlags = c.VK_SHADER_STAGE_FRAGMENT_BIT;
 
         var cInfo = std.mem.zeroes(c.VkDescriptorSetLayoutCreateInfo);
         cInfo.sType = c.VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
@@ -729,7 +736,7 @@ pub const VulkanRenderer = struct {
         dynamicState.pDynamicStates = &dynamicStates;
 
         //inputs
-        var vertexInputs = std.mem.zeroes([3]c.VkVertexInputBindingDescription);
+        var vertexInputs = std.mem.zeroes([4]c.VkVertexInputBindingDescription);
         vertexInputs[0].binding = 0;
         vertexInputs[0].inputRate = c.VK_VERTEX_INPUT_RATE_VERTEX;
         vertexInputs[0].stride = @sizeOf(f32) * 3;
@@ -742,7 +749,11 @@ pub const VulkanRenderer = struct {
         vertexInputs[2].inputRate = c.VK_VERTEX_INPUT_RATE_VERTEX;
         vertexInputs[2].stride = @sizeOf(f32) * 2;
 
-        var vertexAttributes = std.mem.zeroes([3]c.VkVertexInputAttributeDescription);
+        vertexInputs[3].binding = 3;
+        vertexInputs[3].inputRate = c.VK_VERTEX_INPUT_RATE_VERTEX;
+        vertexInputs[3].stride = @sizeOf(f32) * 4;
+
+        var vertexAttributes = std.mem.zeroes([4]c.VkVertexInputAttributeDescription);
         vertexAttributes[0].binding = 0;
         vertexAttributes[0].location = 0;
         vertexAttributes[0].format = c.VK_FORMAT_R32G32B32_SFLOAT;
@@ -757,6 +768,11 @@ pub const VulkanRenderer = struct {
         vertexAttributes[2].location = 2;
         vertexAttributes[2].format = c.VK_FORMAT_R32G32_SFLOAT;
         vertexAttributes[2].offset = 0;
+
+        vertexAttributes[3].binding = 3;
+        vertexAttributes[3].location = 3;
+        vertexAttributes[3].format = c.VK_FORMAT_R32G32B32A32_SFLOAT;
+        vertexAttributes[3].offset = 0;
 
         var vertexInputInfo = std.mem.zeroes(c.VkPipelineVertexInputStateCreateInfo);
         vertexInputInfo.sType = c.VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
@@ -988,7 +1004,7 @@ pub const VulkanRenderer = struct {
 
         self.sceneInfoUniform = SceneInfoUniform{
             .lightPos = za.Vec3.fromSlice(&[_]f32{ 0.0, 2.0, 0.0 }),
-            .lightAmbient = za.Vec3.fromSlice(&[_]f32{ 0.2, 0.2, 0.2 }),
+            .lightAmbient = za.Vec3.fromSlice(&[_]f32{ 0.1, 0.1, 0.1 }),
             .lightColor = za.Vec3.fromSlice(&[_]f32{ 1.0, 1.0, 1.0 }),
             .camPos = za.Vec3.fromSlice(&[_]f32{ 0.0, 1.0, 0.0 }),
         };
@@ -1098,8 +1114,8 @@ pub const VulkanRenderer = struct {
         );
 
         for (self.model.submeshes.items) |submesh| {
-            const buffers = [_]c.VkBuffer{ submesh.posBuffer.handle, submesh.normalBuffer.handle, submesh.uvBuffer.handle };
-            const offsets = [_]u64{ 0, 0, 0 };
+            const buffers = [_]c.VkBuffer{ submesh.posBuffer.handle, submesh.normalBuffer.handle, submesh.uvBuffer.handle, submesh.tangentBuffer.handle };
+            const offsets = [_]u64{ 0, 0, 0, 0 };
             c.vkCmdBindVertexBuffers(self.commandBuffer, 0, buffers.len, &buffers, &offsets);
             c.vkCmdBindIndexBuffer(self.commandBuffer, submesh.idxBuffer.handle, 0, c.VK_INDEX_TYPE_UINT32);
 

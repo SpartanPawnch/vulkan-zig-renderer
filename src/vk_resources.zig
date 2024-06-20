@@ -6,6 +6,7 @@ const RcError = error{
     VkFenceCreateFailed,
     VkImageViewCreateFailed,
     VkSamplerCreateFailed,
+    VkBufferAllocateFailed,
 };
 
 pub fn computeMipLevels(width: u32, height: u32) u32 {
@@ -102,7 +103,11 @@ pub const Buffer = struct {
         var allocInfo = std.mem.zeroes(c.VmaAllocationCreateInfo);
         allocInfo.usage = c.VMA_MEMORY_USAGE_AUTO;
         allocInfo.flags = c.VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT;
-        _ = c.vmaCreateBuffer(vmaAllocator, &cInfo, &allocInfo, &buffer, &allocation, null);
+        const result = c.vmaCreateBuffer(vmaAllocator, &cInfo, &allocInfo, &buffer, &allocation, null);
+        if (result != c.VK_SUCCESS) {
+            std.debug.print("Failed to allocate buffer of size {}\n", .{size});
+            return error.VkBufferAllocateFailed;
+        }
 
         return Buffer{ .handle = buffer, .allocation = allocation };
     }
