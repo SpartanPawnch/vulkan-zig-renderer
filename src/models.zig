@@ -1,6 +1,7 @@
 const std = @import("std");
 const c = @import("c_imports.zig");
 const vkrc = @import("vk_resources.zig");
+const gpass = @import("graphics_pass.zig");
 const Gltf = @import("zgltf");
 const za = @import("zalgebra");
 const img_loader = @import("image_loader.zig");
@@ -13,12 +14,6 @@ const ModelError = error{
 };
 
 const allocator = std.heap.page_allocator;
-
-pub const MaterialUniform = struct {
-    baseColorFactor: za.Vec4 = undefined,
-    metallicFactor: f32 = 0.0,
-    roughnessFactor: f32 = 0.0,
-};
 
 pub const Model = struct {
     const SubMesh = struct {
@@ -303,13 +298,13 @@ pub const Model = struct {
         var materialBuffers = std.ArrayList(vkrc.Buffer).init(allocator);
 
         for (gltfCtx.data.materials.items) |mat| {
-            const matData = MaterialUniform{
+            const matData = gpass.MaterialUniform{
                 .baseColorFactor = za.Vec4.fromSlice(&mat.metallic_roughness.base_color_factor),
                 .metallicFactor = mat.metallic_roughness.metallic_factor,
                 .roughnessFactor = mat.metallic_roughness.roughness_factor,
             };
-            try materialBuffers.append(try vkrc.Buffer.init(vmaAllocator, @sizeOf(MaterialUniform), c.VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT));
-            _ = c.vmaCopyMemoryToAllocation(vmaAllocator, &matData, materialBuffers.getLast().allocation, 0, @sizeOf(MaterialUniform));
+            try materialBuffers.append(try vkrc.Buffer.init(vmaAllocator, @sizeOf(gpass.MaterialUniform), c.VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT));
+            _ = c.vmaCopyMemoryToAllocation(vmaAllocator, &matData, materialBuffers.getLast().allocation, 0, @sizeOf(gpass.MaterialUniform));
         }
 
         //create material descriptors

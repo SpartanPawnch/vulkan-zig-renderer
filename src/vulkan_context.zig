@@ -1,6 +1,15 @@
 const std = @import("std");
 const c = @import("c_imports.zig");
 
+pub const VkContextError = error{
+    GlfwInitFailed,
+    NoVulkan,
+    WindowInitFailed,
+    VkInstanceCreateFailed,
+    VkDeviceCreateFailed,
+    VkSurfaceCreateFailed,
+};
+
 extern fn glfwCreateWindowSurface(
     instance: c.VkInstance,
     window: *c.GLFWwindow,
@@ -33,7 +42,7 @@ pub const VulkanContext = struct {
             .apiVersion = c.VK_API_VERSION_1_3,
             .pNext = null,
             .applicationVersion = c.VK_MAKE_VERSION(0, 0, 1),
-            .pApplicationName = "Kur",
+            .pApplicationName = "Sponza Renderer",
             .pEngineName = null,
             .engineVersion = 1,
         };
