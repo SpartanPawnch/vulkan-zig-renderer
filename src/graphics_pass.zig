@@ -367,4 +367,35 @@ pub const GraphicsPass = struct {
         c.vkDestroyDescriptorSetLayout(self.context.device, self.materialDescriptorSetLayout, null);
         c.vkDestroyRenderPass(self.context.device, self.renderPass, null);
     }
+
+    pub fn cmdBindGraphicsPipeline(self: *GraphicsPass, commandBuffer: c.VkCommandBuffer) void {
+        c.vkCmdBindPipeline(commandBuffer, c.VK_PIPELINE_BIND_POINT_GRAPHICS, self.graphicsPipeline);
+    }
+    pub fn cmdPushCamData(self: *GraphicsPass, commandBuffer: c.VkCommandBuffer, camData: *VSPushConstants) void {
+        c.vkCmdPushConstants(commandBuffer, self.graphicsLayout, c.VK_SHADER_STAGE_VERTEX_BIT, 0, @sizeOf(VSPushConstants), camData);
+    }
+    pub fn cmdBindMaterialUniform(self: *GraphicsPass, commandBuffer: c.VkCommandBuffer, materialDescriptor: c.VkDescriptorSet) void {
+        c.vkCmdBindDescriptorSets(
+            commandBuffer,
+            c.VK_PIPELINE_BIND_POINT_GRAPHICS,
+            self.graphicsLayout,
+            0,
+            1,
+            &materialDescriptor,
+            0,
+            null,
+        );
+    }
+    pub fn cmdBindSceneInfoUniform(self: *GraphicsPass, commandBuffer: c.VkCommandBuffer, sceneInfoDescriptor: c.VkDescriptorSet) void {
+        c.vkCmdBindDescriptorSets(
+            commandBuffer,
+            c.VK_PIPELINE_BIND_POINT_GRAPHICS,
+            self.graphicsLayout,
+            1,
+            1,
+            &sceneInfoDescriptor,
+            0,
+            null,
+        );
+    }
 };

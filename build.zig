@@ -1,25 +1,18 @@
 const std = @import("std");
-// const vkgen = @import("deps/vulkan-zig/generator/index.zig");
 
 pub fn build(b: *std.Build) !void {
-    // const target = b.standardTargetOptions(.{});
-    // const mode = b.standardReleaseOptions();
-
     const exe = b.addExecutable(.{
         .name = "renderer",
-        .root_source_file = .{ .path = "src/main.zig" },
+        .root_source_file = b.path("src/main.zig"),
         .target = b.host,
     });
 
     //add zgltf
-    const zgltf = b.addModule("zgltf", .{ .root_source_file = .{ .path = "deps/zgltf/src/main.zig" } });
-    // exe.addModule("zgltf", zgltf);
+    const zgltf = b.addModule("zgltf", .{ .root_source_file = b.path("deps/zgltf/src/main.zig") });
     exe.root_module.addImport("zgltf", zgltf);
 
     //add zlm
-    // const zlm = b.addModule("zlm", .{ .source_file = .{ .path = "deps/zlm/src/zlm.zig" } });
-    // exe.addModule("zlm", zlm);
-    const za = b.addModule("zalgebra", .{ .root_source_file = .{ .path = "deps/zalgebra/src/main.zig" } });
+    const za = b.addModule("zalgebra", .{ .root_source_file = b.path("deps/zalgebra/src/main.zig") });
     exe.root_module.addImport("zalgebra", za);
 
     //add c deps
@@ -27,15 +20,15 @@ pub fn build(b: *std.Build) !void {
     exe.linkLibCpp();
     exe.linkSystemLibrary("glfw");
     exe.linkSystemLibrary("vulkan");
-    exe.addSystemIncludePath(std.Build.LazyPath{ .path = "deps/vma" });
-    exe.addSystemIncludePath(std.Build.LazyPath{ .path = "deps/stb_image" });
-    exe.addCSourceFile(.{ .file = .{ .path = "src/vk_mem_alloc.cpp" }, .flags = &.{""} });
-    exe.addCSourceFile(.{ .file = .{ .path = "src/stbi.c" }, .flags = &.{""} });
+    exe.addSystemIncludePath(b.path("deps/vma"));
+    exe.addSystemIncludePath(b.path("deps/stb_image"));
+    exe.addCSourceFile(.{ .file = b.path("src/vk_mem_alloc.cpp") });
+    exe.addCSourceFile(.{ .file = b.path("src/stbi.c") });
 
     b.default_step.dependOn(&exe.step);
     b.installArtifact(exe);
     b.installDirectory(.{
-        .source_dir = .{ .path = "assets" },
+        .source_dir = b.path("assets"),
         .install_dir = .bin,
         .install_subdir = "assets",
     });
@@ -49,8 +42,6 @@ pub fn build(b: *std.Build) !void {
 }
 
 fn addShader(b: *std.Build, exe: anytype, in_file: []const u8, out_file: []const u8) !void {
-    // example:
-    // glslc -o shaders/vert.spv shaders/shader.vert
     const dirname = "src/shaders";
     const full_in = try std.fs.path.join(b.allocator, &[_][]const u8{ dirname, in_file });
     const full_out = try std.fs.path.join(b.allocator, &[_][]const u8{ dirname, out_file });

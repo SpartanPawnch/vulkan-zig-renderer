@@ -523,20 +523,11 @@ pub const VulkanRenderer = struct {
 
         c.vkCmdBeginRenderPass(self.commandBuffer, &renderPassBeginInfo, c.VK_SUBPASS_CONTENTS_INLINE);
 
-        c.vkCmdBindPipeline(self.commandBuffer, c.VK_PIPELINE_BIND_POINT_GRAPHICS, self.graphicsPass.graphicsPipeline);
+        self.graphicsPass.cmdBindGraphicsPipeline(self.commandBuffer);
 
-        c.vkCmdPushConstants(self.commandBuffer, self.graphicsPass.graphicsLayout, c.VK_SHADER_STAGE_VERTEX_BIT, 0, @sizeOf(gpass.VSPushConstants), &camData);
+        self.graphicsPass.cmdPushCamData(self.commandBuffer, &camData);
 
-        c.vkCmdBindDescriptorSets(
-            self.commandBuffer,
-            c.VK_PIPELINE_BIND_POINT_GRAPHICS,
-            self.graphicsPass.graphicsLayout,
-            1,
-            1,
-            &self.sceneInfoDescriptorSet,
-            0,
-            null,
-        );
+        self.graphicsPass.cmdBindSceneInfoUniform(self.commandBuffer, self.sceneInfoDescriptorSet);
 
         for (self.model.submeshes.items) |submesh| {
             const buffers = [_]c.VkBuffer{ submesh.posBuffer.handle, submesh.normalBuffer.handle, submesh.uvBuffer.handle, submesh.tangentBuffer.handle };
@@ -545,16 +536,7 @@ pub const VulkanRenderer = struct {
             c.vkCmdBindIndexBuffer(self.commandBuffer, submesh.idxBuffer.handle, 0, c.VK_INDEX_TYPE_UINT32);
 
             const materialDescriptor = self.model.materialDescriptors.items[submesh.materialIdx.?];
-            c.vkCmdBindDescriptorSets(
-                self.commandBuffer,
-                c.VK_PIPELINE_BIND_POINT_GRAPHICS,
-                self.graphicsPass.graphicsLayout,
-                0,
-                1,
-                &materialDescriptor,
-                0,
-                null,
-            );
+            self.graphicsPass.cmdBindMaterialUniform(self.commandBuffer, materialDescriptor);
 
             c.vkCmdDrawIndexed(self.commandBuffer, submesh.idxCount, 1, 0, 0, 0);
         }
