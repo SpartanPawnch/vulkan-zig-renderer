@@ -316,8 +316,8 @@ pub const GraphicsPass = struct {
         colorBlendAttachment.srcColorBlendFactor = c.VK_BLEND_FACTOR_ONE;
         colorBlendAttachment.dstColorBlendFactor = c.VK_BLEND_FACTOR_ZERO;
         colorBlendAttachment.colorBlendOp = c.VK_BLEND_OP_ADD;
-        colorBlendAttachment.srcAlphaBlendFactor = c.VK_BLEND_FACTOR_ONE;
-        colorBlendAttachment.dstAlphaBlendFactor = c.VK_BLEND_FACTOR_ZERO;
+        colorBlendAttachment.srcAlphaBlendFactor = c.VK_BLEND_FACTOR_SRC_ALPHA;
+        colorBlendAttachment.dstAlphaBlendFactor = c.VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
         colorBlendAttachment.alphaBlendOp = c.VK_BLEND_OP_ADD;
 
         var colorBlending = std.mem.zeroes(c.VkPipelineColorBlendStateCreateInfo);

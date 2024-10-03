@@ -30,7 +30,13 @@ void main() {
     //lookup textures
     float metalness=materialUniform.metallicFactor*texture(texMetallicRoughness,v2fTex).b;
     float roughness=materialUniform.roughnessFactor*texture(texMetallicRoughness,v2fTex).g;
-    vec3 cmat=texture(colorTex,v2fTex).rgb;
+    vec4 albedo=texture(colorTex,v2fTex);
+
+    if(albedo.a<0.1){
+      discard;
+    }
+
+    vec3 cmat=albedo.rgb;
 
     //construct normal using normal map
     vec3 tangent=v2fTangent.xyz;
@@ -68,5 +74,4 @@ void main() {
 
     vec3 light=sceneInfoFrag.lightAmbient*cmat+(diffuse+specular)*sceneInfoFrag.lightColor*nlPlus;
     outColor=vec4(light,1.f);
-    
 }
