@@ -121,7 +121,7 @@ pub fn main() !void {
     c.glfwWindowHint(c.GLFW_CLIENT_API, c.GLFW_NO_API);
     c.glfwWindowHint(c.GLFW_RESIZABLE, c.GLFW_FALSE);
     c.glfwWindowHint(c.GLFW_DECORATED, c.GLFW_FALSE);
-    // c.glfwWindowHint(c.GLFW_SAMPLES, 4);
+    c.glfwWindowHint(c.GLFW_SAMPLES, 4);
     const window = c.glfwCreateWindow(
         @intCast(extent.width),
         @intCast(extent.height),

@@ -428,10 +428,10 @@ pub const VulkanRenderer = struct {
         placeholders.init(self.vmaAllocator);
 
         self.sceneInfoUniform = gpass.SceneInfoUniform{
-            .lightPos = za.Vec3.fromSlice(&[_]f32{ 0.0, 2.0, 0.0 }),
-            .lightAmbient = za.Vec3.fromSlice(&[_]f32{ 0.1, 0.1, 0.1 }),
-            .lightColor = za.Vec3.fromSlice(&[_]f32{ 1.0, 1.0, 1.0 }),
-            .camPos = za.Vec3.fromSlice(&[_]f32{ 0.0, 1.0, 0.0 }),
+            .lightPos = za.Vec3.new(0.0, 2.0, 0.0),
+            .lightAmbient = za.Vec3.new(0.1, 0.1, 0.1),
+            .lightColor = za.Vec3.new(1.0, 1.0, 1.0),
+            .camPos = za.Vec3.new(0.0, 1.0, 0.0),
         };
         try self.createSceneUniformBuffer(&self.sceneInfoUniform);
 

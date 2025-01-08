@@ -1,0 +1,17 @@
+.{
+    .name = "VulkanRenderer",
+    .version = "0.0.0",
+    .minimum_zig_version = "0.13.0",
+    .dependencies = .{
+        .zalgebra = .{
+            .url = "git+https://github.com/kooparse/zalgebra.git/?ref=HEAD#0ff2b6093a410b26a294d4ed53985882256072a1",
+            .hash = "1220fbbcfa859f668d69b4f7d2aa621d13b128a77b46965e6c4aae35f9c1d7b85eb8",
+        },
+    },
+    .paths = .{
+        "build.zig",
+        "build.zig.zon",
+        "src",
+        "README.md",
+    },
+}

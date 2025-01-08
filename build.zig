@@ -1,18 +1,22 @@
 const std = @import("std");
 
 pub fn build(b: *std.Build) !void {
+    const target = b.standardTargetOptions(.{});
+    const optimize = b.standardOptimizeOption(.{});
+
     const exe = b.addExecutable(.{
         .name = "renderer",
         .root_source_file = b.path("src/main.zig"),
-        .target = b.host,
+        .target = target,
+        .optimize = optimize,
     });
 
     //add zgltf
     const zgltf = b.addModule("zgltf", .{ .root_source_file = b.path("deps/zgltf/src/main.zig") });
     exe.root_module.addImport("zgltf", zgltf);
 
-    //add zlm
-    const za = b.addModule("zalgebra", .{ .root_source_file = b.path("deps/zalgebra/src/main.zig") });
+    //add zalgebra
+    const za = b.dependency("zalgebra", .{ .target = target, .optimize = optimize }).module("zalgebra");
     exe.root_module.addImport("zalgebra", za);
 
     //add c deps
@@ -34,6 +38,7 @@ pub fn build(b: *std.Build) !void {
     });
 
     const run_exe = b.addRunArtifact(exe);
+    run_exe.step.dependOn(b.getInstallStep());
     const run_step = b.step("run", "Run the app");
     run_step.dependOn(&run_exe.step);
 
