@@ -1,19 +1,14 @@
 const std = @import("std");
+const c = @import("c_imports.zig");
+const glfw = @import("mach-glfw");
+
 const models = @import("models.zig");
 const vkctx = @import("vulkan_context.zig");
 const gpass = @import("graphics_pass.zig");
 const vkrc = @import("vk_resources.zig");
 const vkutil = @import("vk_utils.zig");
 const placeholders = @import("vk_placeholders.zig");
-const c = @import("c_imports.zig");
 const za = @import("zalgebra");
-
-extern fn glfwCreateWindowSurface(
-    instance: c.VkInstance,
-    window: *c.GLFWwindow,
-    allocator: ?*const c.VkAllocationCallbacks,
-    surface: *c.VkSurfaceKHR,
-) c.VkResult;
 
 pub const mainError = error{
     VkSwapchainCreateFailed,
@@ -151,17 +146,15 @@ pub const VulkanRenderer = struct {
         return c.VK_PRESENT_MODE_FIFO_KHR;
     }
 
-    fn chooseSwapExtent(capabilities: *c.VkSurfaceCapabilitiesKHR, window: *c.GLFWwindow) c.VkExtent2D {
+    fn chooseSwapExtent(capabilities: *c.VkSurfaceCapabilitiesKHR, window: glfw.Window) c.VkExtent2D {
         if (capabilities.currentExtent.width != std.math.maxInt(u32)) {
             return capabilities.currentExtent;
         }
-        var width: i32 = undefined;
-        var height: i32 = undefined;
-        c.glfwGetFramebufferSize(window, &width, &height);
+        const frameSize = window.getFramebufferSize();
 
         var actualExtent = c.VkExtent2D{
-            .width = @intCast(width),
-            .height = @intCast(height),
+            .width = @intCast(frameSize.width),
+            .height = @intCast(frameSize.height),
         };
         actualExtent.width = @min(capabilities.maxImageExtent.width, @max(capabilities.minImageExtent.width, actualExtent.width));
         actualExtent.height = @min(capabilities.maxImageExtent.height, @max(capabilities.minImageExtent.height, actualExtent.height));
@@ -169,7 +162,7 @@ pub const VulkanRenderer = struct {
         return actualExtent;
     }
 
-    fn createSwapChain(self: *VulkanRenderer, window: *c.GLFWwindow) !void {
+    fn createSwapChain(self: *VulkanRenderer, window: glfw.Window) !void {
         var details = try self.querySwapchainSupport();
         defer details.deinit();
 
@@ -405,7 +398,7 @@ pub const VulkanRenderer = struct {
         _ = c.vkUpdateDescriptorSets(self.context.device, 1, &descriptorWrite, 0, null);
     }
 
-    pub fn init(window: *c.GLFWwindow) !VulkanRenderer {
+    pub fn init(window: glfw.Window) !VulkanRenderer {
         var self = VulkanRenderer{};
         self.context = try vkctx.VulkanContext.init(window);
         try self.createVmaAllocator();
@@ -547,7 +540,7 @@ pub const VulkanRenderer = struct {
             return error.VkCommandBufferEndFailed;
         }
     }
-    pub fn draw(self: *VulkanRenderer, window: *c.GLFWwindow, cam: za.Mat4) !void {
+    pub fn draw(self: *VulkanRenderer, window: glfw.Window, cam: za.Mat4) !void {
         _ = c.vkWaitForFences(self.context.device, 1, &self.presentFence.handle, c.VK_TRUE, c.UINT64_MAX);
         _ = c.vkResetFences(self.context.device, 1, &self.presentFence.handle);
 
@@ -622,7 +615,7 @@ pub const VulkanRenderer = struct {
         c.vkDestroySwapchainKHR(self.context.device, self.swapchain, null);
     }
 
-    fn recreateSwapchain(self: *VulkanRenderer, window: *c.GLFWwindow) !void {
+    fn recreateSwapchain(self: *VulkanRenderer, window: glfw.Window) !void {
         _ = c.vkDeviceWaitIdle(self.context.device);
 
         self.cleanupSwapchain();

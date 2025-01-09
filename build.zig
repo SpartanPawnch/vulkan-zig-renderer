@@ -11,6 +11,10 @@ pub fn build(b: *std.Build) !void {
         .optimize = optimize,
     });
 
+    //add mach-glfw
+    const mach_glfw = b.dependency("mach-glfw", .{ .target = target, .optimize = optimize }).module("mach-glfw");
+    exe.root_module.addImport("mach-glfw", mach_glfw);
+
     //add zgltf
     const zgltf = b.addModule("zgltf", .{ .root_source_file = b.path("deps/zgltf/src/main.zig") });
     exe.root_module.addImport("zgltf", zgltf);
@@ -22,7 +26,6 @@ pub fn build(b: *std.Build) !void {
     //add c deps
     exe.linkLibC();
     exe.linkLibCpp();
-    exe.linkSystemLibrary("glfw");
     exe.linkSystemLibrary("vulkan");
     exe.addSystemIncludePath(b.path("deps/vma"));
     exe.addSystemIncludePath(b.path("deps/stb_image"));

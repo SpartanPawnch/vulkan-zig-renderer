@@ -1,5 +1,5 @@
 const std = @import("std");
-const c = @import("c_imports.zig");
+const glfw = @import("mach-glfw");
 const vk = @import("vulkan_renderer.zig");
 const za = @import("zalgebra");
 
@@ -19,47 +19,47 @@ const CamState = struct {
     wasMousing: bool = false,
 };
 
-fn glfwCallbackKeyPress(window: ?*c.GLFWwindow, key: c_int, scanCode: c_int, action: c_int, _: c_int) callconv(.C) void {
-    const state: *CamState = @ptrCast(@alignCast(c.glfwGetWindowUserPointer(window)));
+fn glfwCallbackKeyPress(window: glfw.Window, key: glfw.Key, scanCode: c_int, action: glfw.Action, _: glfw.Mods) void {
+    const state = window.getUserPointer(CamState) orelse return;
     _ = scanCode;
-    const isReleased = (action == c.GLFW_RELEASE);
+    const isReleased = (action == glfw.Action.release);
     switch (key) {
-        c.GLFW_KEY_W => {
+        glfw.Key.w => {
             state.forward = !isReleased;
         },
-        c.GLFW_KEY_S => {
+        glfw.Key.s => {
             state.back = !isReleased;
         },
-        c.GLFW_KEY_A => {
+        glfw.Key.a => {
             state.left = !isReleased;
         },
-        c.GLFW_KEY_D => {
+        glfw.Key.d => {
             state.right = !isReleased;
         },
-        c.GLFW_KEY_E => {
+        glfw.Key.e => {
             state.up = !isReleased;
         },
-        c.GLFW_KEY_Q => {
+        glfw.Key.q => {
             state.down = !isReleased;
         },
         else => {},
     }
 }
 
-fn glfwCallbackButton(window: ?*c.GLFWwindow, button: c_int, action: c_int, _: c_int) callconv(.C) void {
-    const state: *CamState = @ptrCast(@alignCast(c.glfwGetWindowUserPointer(window)));
-    if (button == c.GLFW_MOUSE_BUTTON_RIGHT and action == c.GLFW_PRESS) {
+fn glfwCallbackButton(window: glfw.Window, button: glfw.MouseButton, action: glfw.Action, _: glfw.Mods) void {
+    const state = window.getUserPointer(CamState) orelse return;
+    if (button == glfw.MouseButton.right and action == glfw.Action.press) {
         state.mousing = !state.mousing;
         if (state.mousing) {
-            c.glfwSetInputMode(window, c.GLFW_CURSOR, c.GLFW_CURSOR_DISABLED);
+            window.setInputModeCursor(.disabled);
         } else {
-            c.glfwSetInputMode(window, c.GLFW_CURSOR, c.GLFW_CURSOR_NORMAL);
+            window.setInputModeCursor(.normal);
         }
     }
 }
 
-fn glfwCallbackMotion(window: ?*c.GLFWwindow, x: f64, y: f64) callconv(.C) void {
-    const state: *CamState = @ptrCast(@alignCast(c.glfwGetWindowUserPointer(window)));
+fn glfwCallbackMotion(window: glfw.Window, x: f64, y: f64) void {
+    const state = window.getUserPointer(CamState) orelse return;
     state.mouseX = x;
     state.mouseY = y;
 }
@@ -107,29 +107,26 @@ fn updateCamera(state: *CamState, deltaTime: f64) void {
 
 pub fn main() !void {
     //init glfw
-    if (c.glfwInit() != c.GLFW_TRUE) {
+    if (!glfw.init(.{})) {
         return error.GlfwInitFailed;
     }
+    defer glfw.terminate();
 
-    if (c.glfwVulkanSupported() != c.GLFW_TRUE) {
+    if (!glfw.vulkanSupported()) {
         std.log.err("Vulkan is unsupported", .{});
         return error.NoVulkan;
     }
 
     //create window
-    const extent = c.VkExtent2D{ .width = 1600, .height = 900 };
-    c.glfwWindowHint(c.GLFW_CLIENT_API, c.GLFW_NO_API);
-    c.glfwWindowHint(c.GLFW_RESIZABLE, c.GLFW_FALSE);
-    c.glfwWindowHint(c.GLFW_DECORATED, c.GLFW_FALSE);
-    c.glfwWindowHint(c.GLFW_SAMPLES, 4);
-    const window = c.glfwCreateWindow(
-        @intCast(extent.width),
-        @intCast(extent.height),
+    const window = glfw.Window.create(
+        1600,
+        900,
         "Vulkan Renderer",
         null,
         null,
+        .{ .client_api = .no_api, .resizable = false, .samples = 4 },
     ) orelse return error.WindowInitFailed;
-    defer c.glfwDestroyWindow(window);
+    defer window.destroy();
 
     //init vulkan
     var vkCtx = try vk.VulkanRenderer.init(window);
@@ -137,23 +134,23 @@ pub fn main() !void {
 
     //setup input
     var camState = CamState{};
-    c.glfwSetWindowUserPointer(window, &camState);
-    _ = c.glfwSetKeyCallback(window, glfwCallbackKeyPress);
-    _ = c.glfwSetMouseButtonCallback(window, glfwCallbackButton);
-    _ = c.glfwSetCursorPosCallback(window, glfwCallbackMotion);
+    window.setUserPointer(&camState);
+    window.setKeyCallback(glfwCallbackKeyPress);
+    window.setMouseButtonCallback(glfwCallbackButton);
+    window.setCursorPosCallback(glfwCallbackMotion);
 
     const posDelta = za.Vec3.set(0.0);
     _ = posDelta;
 
-    var lastTime = c.glfwGetTime();
-    while (c.glfwWindowShouldClose(window) == c.GLFW_FALSE) {
-        c.glfwPollEvents();
-        const currTime = c.glfwGetTime();
+    var lastTime = glfw.getTime();
+    while (!window.shouldClose()) {
+        glfw.pollEvents();
+        const currTime = glfw.getTime();
         const deltaTime = currTime - lastTime;
         lastTime = currTime;
         updateCamera(&camState, deltaTime);
 
         try vkCtx.draw(window, camState.cam);
-        c.glfwSwapBuffers(window);
+        window.swapBuffers();
     }
 }

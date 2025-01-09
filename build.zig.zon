@@ -7,6 +7,10 @@
             .url = "git+https://github.com/kooparse/zalgebra.git/?ref=HEAD#0ff2b6093a410b26a294d4ed53985882256072a1",
             .hash = "1220fbbcfa859f668d69b4f7d2aa621d13b128a77b46965e6c4aae35f9c1d7b85eb8",
         },
+        .@"mach-glfw" = .{
+            .url = "git+https://github.com/emidoots/mach-glfw.git/?ref=HEAD#affdd6ae6f2ac2c3b9162784bdad345c561eeeea",
+            .hash = "122022ea6df16700e521078c20d7d01f894c6f967e6c6ce1ea166426b4fc61667de3",
+        },
     },
     .paths = .{
         "build.zig",

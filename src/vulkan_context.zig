@@ -1,5 +1,6 @@
 const std = @import("std");
 const c = @import("c_imports.zig");
+const glfw = @import("mach-glfw");
 
 pub const VkContextError = error{
     GlfwInitFailed,
@@ -9,13 +10,6 @@ pub const VkContextError = error{
     VkDeviceCreateFailed,
     VkSurfaceCreateFailed,
 };
-
-extern fn glfwCreateWindowSurface(
-    instance: c.VkInstance,
-    window: *c.GLFWwindow,
-    allocator: ?*const c.VkAllocationCallbacks,
-    surface: *c.VkSurfaceKHR,
-) c.VkResult;
 
 pub const VulkanContext = struct {
     instance: c.VkInstance = undefined,
@@ -48,13 +42,12 @@ pub const VulkanContext = struct {
         };
 
         //resolve extensions
-        var glfwExtensionCount: u32 = 0;
-        const glfwExtensions = c.glfwGetRequiredInstanceExtensions(&glfwExtensionCount);
+        const glfwExtensions = glfw.getRequiredInstanceExtensions() orelse unreachable;
 
         var extensions = std.ArrayList([*]const u8).init(std.heap.c_allocator);
-        try extensions.ensureTotalCapacity(glfwExtensionCount + 1);
+        try extensions.ensureTotalCapacity(glfwExtensions.len + 1);
         defer extensions.deinit();
-        for (0..glfwExtensionCount) |i| {
+        for (0..glfwExtensions.len) |i| {
             try extensions.append(glfwExtensions[i]);
         }
         try extensions.append(c.VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
@@ -247,12 +240,12 @@ pub const VulkanContext = struct {
         c.vkGetDeviceQueue(self.device, self.presentFamily.?, 0, &self.presentQueue);
     }
 
-    fn createSurface(self: *VulkanContext, window: *c.GLFWwindow) !void {
-        if (glfwCreateWindowSurface(self.instance, window, null, &self.surface) != c.VK_SUCCESS) {
+    fn createSurface(self: *VulkanContext, window: glfw.Window) !void {
+        if (glfw.createWindowSurface(self.instance, window, null, &self.surface) != c.VK_SUCCESS) {
             return error.VkSurfaceCreateFailed;
         }
     }
-    pub fn init(window: *c.GLFWwindow) !VulkanContext {
+    pub fn init(window: glfw.Window) !VulkanContext {
         var self = VulkanContext{};
         try self.createInstance();
         try self.setupDebugMessenger();
